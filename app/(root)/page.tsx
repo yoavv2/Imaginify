@@ -5,7 +5,6 @@ const Home = () => {
   return (
     <div className='h-screen'>
       <p>This is the home page.</p>
-      <UserButton afterSignOutUrl='/' />
     </div>
   );
 };
