@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+
 import User from '../database/models/user.model';
 import { connectToDatabase } from '../database/mongoose';
 
@@ -18,28 +19,51 @@ type UpdateUserParams = Pick<
   'photo' | 'username' | 'firstName' | 'lastName'
 >;
 
+export const handleError = (error: unknown) => {
+  if (error instanceof Error) {
+    // This is a native JavaScript error (e.g., TypeError, RangeError)
+    console.error(error.message);
+    throw new Error(`Error: ${error.message}`);
+  } else if (typeof error === 'string') {
+    // This is a string error message
+    console.error(error);
+    throw new Error(`Error: ${error}`);
+  } else {
+    // This is an unknown type of error
+    console.error(error);
+    throw new Error(`Unknown error: ${JSON.stringify(error)}`);
+  }
+};
+
+// CREATE
 export async function createUser(user: CreateUserParams) {
   try {
     await connectToDatabase();
 
     const newUser = await User.create(user);
+
     return JSON.parse(JSON.stringify(newUser));
-  } catch (err) {
-    console.log(err);
+  } catch (error) {
+    handleError(error);
   }
 }
 
-export async function getUser(userId: string) {
+// READ
+export async function getUserById(userId: string) {
   try {
     await connectToDatabase();
+
     const user = await User.findOne({ clerkId: userId });
+
     if (!user) throw new Error('User not found');
+
     return JSON.parse(JSON.stringify(user));
-  } catch (err) {
-    console.log(err);
+  } catch (error) {
+    handleError(error);
   }
 }
 
+// UPDATE
 export async function updateUser(clerkId: string, user: UpdateUserParams) {
   try {
     await connectToDatabase();
@@ -47,24 +71,52 @@ export async function updateUser(clerkId: string, user: UpdateUserParams) {
     const updatedUser = await User.findOneAndUpdate({ clerkId }, user, {
       new: true,
     });
-    if (!updatedUser) throw new Error('User not updated');
+
+    if (!updatedUser) throw new Error('User update failed');
+
     return JSON.parse(JSON.stringify(updatedUser));
-  } catch (err) {
-    console.log(err);
+  } catch (error) {
+    handleError(error);
   }
 }
 
+// DELETE
 export async function deleteUser(clerkId: string) {
   try {
     await connectToDatabase();
-    const userToDelete = await User.findOne({ clerkId });
-    if (!userToDelete) throw new Error('User not found');
 
-    const deleteUser = await User.findByIdAndDelete(userToDelete._id);
+    // Find user to delete
+    const userToDelete = await User.findOne({ clerkId });
+
+    if (!userToDelete) {
+      throw new Error('User not found');
+    }
+
+    // Delete user
+    const deletedUser = await User.findByIdAndDelete(userToDelete._id);
     revalidatePath('/');
 
-    return deleteUser ? JSON.parse(JSON.stringify(deleteUser)) : null;
-  } catch (err) {
-    console.log(err);
+    return deletedUser ? JSON.parse(JSON.stringify(deletedUser)) : null;
+  } catch (error) {
+    handleError(error);
+  }
+}
+
+// USE CREDITS
+export async function updateCredits(userId: string, creditFee: number) {
+  try {
+    await connectToDatabase();
+
+    const updatedUserCredits = await User.findOneAndUpdate(
+      { _id: userId },
+      { $inc: { creditBalance: creditFee } },
+      { new: true }
+    );
+
+    if (!updatedUserCredits) throw new Error('User credits update failed');
+
+    return JSON.parse(JSON.stringify(updatedUserCredits));
+  } catch (error) {
+    handleError(error);
   }
 }
